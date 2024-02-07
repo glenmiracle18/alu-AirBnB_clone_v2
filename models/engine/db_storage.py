@@ -98,3 +98,4 @@ class DBStorage:
         doc
         """
         self.__session.remove()
+
