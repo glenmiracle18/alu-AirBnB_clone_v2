@@ -2,16 +2,16 @@
 """
 database storage type
 """
-from models.amenity import Amenity
 from sqlalchemy import create_engine
 from models.base_model import BaseModel, Base
+from models.amenity import Amenity
+from sqlalchemy.orm import scoped_session, sessionmaker
 from models.state import State
 from models.city import City
 from models.review import Review
 from models.place import Place
 from models.user import User
 from os import getenv
-from sqlalchemy.orm import scoped_session, sessionmaker
 
 
 classes = {"State": State, "City": City, "User": User}
@@ -33,8 +33,12 @@ class DBStorage:
         HBNB_MYSQL_HOST = getenv('HBNB_MYSQL_HOST')
         HBNB_MYSQL_DB = getenv('HBNB_MYSQL_DB')
         HBNB_ENV = getenv('HBNB_ENV')
-        self.__engine = create_engine("mysql://{}:{}@{}/{}"\
-                .format(HBNB_MYSQL_USER, HBNB_MYSQL_PWD, HBNB_MYSQL_HOST, HBNB_MYSQL_DB), pool_pre_ping=True)
+        self.__engine = create_engine("mysql://{}:{}@{}/{}"
+                                    .format(HBNB_MYSQL_USER,
+                                            HBNB_MYSQL_PWD,
+                                            HBNB_MYSQL_HOST,
+                                            HBNB_MYSQL_DB),
+                                    pool_pre_ping=True)
         if HBNB_ENV == "test":
             Base.metadata.drop_all(self.__engine)
 
