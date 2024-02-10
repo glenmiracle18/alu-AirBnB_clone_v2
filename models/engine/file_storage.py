@@ -11,29 +11,20 @@ class FileStorage:
     def all(self, cls=None):
         """Returns a dictionary of models currently in storage"""
         if cls is None:
-            return self.__objects
-        else:
-            filtered_obj = {}
-            for key, value in self.__objects.items():
-                if type(value) == cls:
-                    filtered_obj[key] = value
-            return filtered_obj
+            return FileStorage.__objects
+        my_dict = {}
+        for k, v in self.__objects.items():
+            if k.startswith(cls.__name__):
+                my_dict[k] = v
+        return my_dict
 
     def new(self, obj):
         """Adds new object to storage dictionary"""
         self.all().update({obj.to_dict()['__class__'] + '.' + obj.id: obj})
 
-    def delete(self, obj=None):
-        """Deletes obj from objects"""
-        if obj is not None:
-            key = key = obj.__class__.__name__ + "." + obj.id
-            if key in self.__objects:
-                del self.__objects[key]
-                self.save()
-
     def save(self):
         """Saves storage dictionary to file"""
-        with open(self.__file_path, 'w') as f:
+        with open(FileStorage.__file_path, 'w') as f:
             temp = {}
             temp.update(FileStorage.__objects)
             for key, val in temp.items():
@@ -51,10 +42,10 @@ class FileStorage:
         from models.review import Review
 
         classes = {
-            'BaseModel': BaseModel, 'User': User, 'Place': Place,
-            'State': State, 'City': City, 'Amenity': Amenity,
-            'Review': Review
-        }
+                    'BaseModel': BaseModel, 'User': User, 'Place': Place,
+                    'State': State, 'City': City, 'Amenity': Amenity,
+                    'Review': Review
+                  }
         try:
             temp = {}
             with open(FileStorage.__file_path, 'r') as f:
@@ -64,6 +55,11 @@ class FileStorage:
         except FileNotFoundError:
             pass
 
-    def close(self):
-        """Deserialize the JSON file to objects"""
-        self.reload()
+    def delete(self, obj=None):
+        """
+        deleting an object from the storage
+        """
+        if obj is not None:
+            key = obj.__class__.__name__ + "." + obj.id
+            if key in self.__objects:
+                del self.__objects[key]
