@@ -10,14 +10,14 @@ from models.amenity import Amenity
 
 if storage_t == "db":
     place_amenity = Table('place_amenity', Base.metadata,
-                        Column('place_id', String(60),
-                                ForeignKey('places.id', ondelete="CASCADE",
+                          Column('place_id', String(60),
+                                 ForeignKey('places.id', ondelete="CASCADE",
                                             onupdate="CASCADE"),
-                                primary_key=True),
-                        Column('amenity_id', String(60),
-                                ForeignKey('amenities.id', ondelete="CASCADE",
+                                 primary_key=True),
+                          Column('amenity_id', String(60),
+                                 ForeignKey('amenities.id', ondelete="CASCADE",
                                             onupdate="CASCADE"),
-                                primary_key=True))
+                                 primary_key=True))
 
 
 class Place(BaseModel, Base):
@@ -36,8 +36,9 @@ class Place(BaseModel, Base):
         longitude = Column(Float)
         reviews = relationship('Review', backref='place')
         amenities = relationship('Amenity', secondary='place_amenity',
-                                backref='place_amenities',
-                                viewonly=False)
+                                 backref='place_amenities',
+                                 viewonly=False)
+        amenity_ids = []
 
     else:
         city_id = ""
@@ -51,21 +52,19 @@ class Place(BaseModel, Base):
         latitude = 0.0
         longitude = 0.0
         amenity_ids = []
-    
+
     def __init__(self, *args, **kwargs):
         """initialize Place object"""
         super().__init__(*args, **kwargs)
 
     @property
     def reviews(self):
-        """getter attribute returns the list of Review instances with"""
         my_list = [review for review in storage.all(Review).values()
-                if review.place_id == self.id]
+                   if review.place_id == self.id]
         return my_list
 
     @property
     def amenities(self):
-        """getter attribute returns the list of Amenity instances with"""
         my_list = [amenity for amenity in storage.all(Amenity).values()
-                if amenity.place_id == self.id]
+                   if amenity.place_id == self.id]
         return my_list
