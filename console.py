@@ -3,7 +3,7 @@
 import cmd
 import sys
 from models.base_model import BaseModel
-from models.__init__ import storage
+from models import storage
 from models.user import User
 from models.place import Place
 from models.state import State
@@ -74,7 +74,7 @@ class HBNBCommand(cmd.Cmd):
                 if pline:
                     # check for *args or **kwargs
                     if pline[0] == '{' and pline[-1] == '}'\
-                            and type(eval(pline)) is dict:
+                            and type(eval(pline)) == dict:
                         _args = pline
                     else:
                         _args = pline.replace(',', '')
@@ -114,29 +114,31 @@ class HBNBCommand(cmd.Cmd):
         pass
 
     def do_create(self, args):
-        """ Create an object of any class"""
-        cls = params = key = value = ""
-        allowed_types = (int, float, str)
-        if not args:
+        """
+        use to create new objects with additional attributes
+        """
+        args = args.split()
+        if len(args) == 0:
             print("** class name missing **")
             return
-        args = args.strip()
-        if " " in args:
-            cls = args[:args.find(" ")]
-        if not cls:
-            cls = args
-        if cls not in HBNBCommand.classes:
+        if args[0] not in HBNBCommand.classes:
             print("** class doesn't exist **")
             return
-        params = args[args.find(" ") + 1:].strip()
-        new_instance = HBNBCommand.classes[cls]()
-        for item in params.split():
-            if "=" in item:
-                item = item.partition("=")
-                value = eval(item[2].replace("_", " "))
-                key = item[0]
-                if type(value) in allowed_types:
-                    setattr(new_instance, key, value)
+        attr_and_values = {}
+        for ele in args[1:]:
+            key = ele.split("=")[0]
+            value = ele.split("=")[1]
+            if '"' not in value:
+                if "." not in value:
+                    value = int(value)
+                else:
+                    value = float(value)
+            else:
+                value = value.strip('"').replace("_", " ")
+            attr_and_values[key] = value
+        new_instance = HBNBCommand.classes[args[0]]()
+        for k, v in attr_and_values.items():
+            setattr(new_instance, k, v)
         storage.new(new_instance)
         storage.save()
         print(new_instance.id)
@@ -170,7 +172,7 @@ class HBNBCommand(cmd.Cmd):
 
         key = c_name + "." + c_id
         try:
-            print(storage._FileStorage__objects[key])
+            print(storage.all()[key])
         except KeyError:
             print("** no instance found **")
 
@@ -217,14 +219,16 @@ class HBNBCommand(cmd.Cmd):
         print_list = []
 
         if args:
-            args = args.strip()  # remove possible trailing args
+            args = args.split(' ')[0]  # remove possible trailing args
             if args not in HBNBCommand.classes:
                 print("** class doesn't exist **")
                 return
-            print_list = [str(obj) for obj in
-                          storage.all(HBNBCommand.classes[args]).values()]
+            for k, v in storage.all().items():
+                if k.split('.')[0] == args:
+                    print_list.append(str(v))
         else:
-            print_list = [str(obj) for obj in storage.all().values()]
+            for k, v in storage.all().items():
+                print_list.append(str(v))
 
         print(print_list)
 
@@ -236,10 +240,15 @@ class HBNBCommand(cmd.Cmd):
     def do_count(self, args):
         """Count current number of class instances"""
         count = 0
-        for k, v in storage._FileStorage__objects.items():
-            if args == k.split('.')[0]:
+        if args == "":
+            for ele in storage.all():
                 count += 1
-        print(count)
+            print(count)
+        else:
+            for k, v in storage.all().items():
+                if args == k.split('.')[0]:
+                    count += 1
+            print(count)
 
     def help_count(self):
         """ """
@@ -277,7 +286,7 @@ class HBNBCommand(cmd.Cmd):
             return
 
         # first determine if kwargs or args
-        if '{' in args[2] and '}' in args[2] and type(eval(args[2])) is dict:
+        if '{' in args[2] and '}' in args[2] and type(eval(args[2])) == dict:
             kwargs = eval(args[2])
             args = []  # reformat kwargs into list, ex: [<name>, <value>, ...]
             for k, v in kwargs.items():
