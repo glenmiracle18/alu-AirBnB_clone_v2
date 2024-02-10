@@ -1,78 +1,111 @@
-"""
-DB Storage
-"""
-from sqlalchemy.orm import sessionmaker, scoped_session
-from models.base_model import Base
-from os import getenv
+#!/usr/bin/python3
+'''Definition of engine for db storage
+'''
 from sqlalchemy import create_engine
+from sqlalchemy.orm import sessionmaker, scoped_session
+from models.city import City
+from models.state import State
+from models.user import User
+from models.place import Place
+from models.review import Review
+from models.base_model import Base
+from models.amenity import Amenity
+import os
 
 
-class DBStorage:
-    """
-    mysql database storage
-    """
+class DBStorage():
+    '''Class definition for database storage
+    '''
     __engine = None
     __session = None
 
-    def __init__(self):
-        USER = getenv('HBNB_MYSQL_USER')
-        PWD = getenv('HBNB_MYSQL_PWD')
-        HOST = getenv('HBNB_MYSQL_HOST')
-        DB = getenv('HBNB_MYSQL_DB')
-        ENV = getenv('HBNB_ENV')
-        self.__engine = create_engine(
-            f'mysql+mysqldb://{USER}:{PWD}@{HOST}/{DB}',
-            pool_pre_ping=True)
+    models = [City, State, User, Place, Review, Amenity]
 
-        if ENV == "test":
+    def __init__(self):
+        '''Initializes and establishes all connections for db storage
+        '''
+        dev_mode = user = password = host = db = ""
+        try:
+            user = os.getenv('HBNB_MYSQL_USER')
+            password = os.getenv('HBNB_MYSQL_PWD')
+            host = os.getenv('HBNB_MYSQL_HOST')
+            db = os.getenv('HBNB_MYSQL_DB')
+            dev_mode = os.getenv('HBNB_ENV')
+        except KeyError:
+            print("Warning: Some environment variables were not found")
+        self.__engine = create_engine(
+            "mysql+mysqldb://{}:{}@{}/{}".format(
+                user,
+                password,
+                host,
+                db
+            ), pool_pre_ping=True)
+        if dev_mode == 'test':
             Base.metadata.drop_all(self.__engine)
 
     def all(self, cls=None):
-        """
-        query all objs or all objs of a certain class
-        """
-        from models.city import City
-        from models.place import Place
-        from models.state import State
-        from models.amenity import Amenity
-        from models.user import User
-        from models.review import Review
-        _classes = {"City": City, "State": State, "Amenity": Amenity,
-                    "User": User, "Review": Review, "Place": Place}
+        '''Return all the all instances of type cls
+        '''
 
-        new_dict = {}
-        for clss in _classes:
-            if cls is None or cls is _classes[clss] or cls is clss:
-                objs = self.__session.query(_classes[clss]).all()
-                for obj in objs:
-                    key = obj.__class__.__name__ + '.' + obj.id
-                    new_dict[key] = obj
-        return (new_dict)
+        result_dict = {}
+        if cls is not None and cls in DBStorage.models:
+            for obj in self.__session.query(cls).all():
+                result_dict.update(
+                    {"{}.{}".format(obj.__class__.__name__, obj.id): obj}
+                )
+        else:
+            for model in DBStorage.models:
+                for obj in self.__session.query(model).all():
+                    result_dict.update(
+                        {"{}.{}".format(obj.__class__.__name__, obj.id): obj}
+                    )
+        return result_dict
+
+    def delete_all(self):
+        """
+           deletes all stored objects, for testing purposes
+        """
+        for c in DBStorage.models:
+            a_query = self.__session.query(c)
+            all_objs = [obj for obj in a_query]
+            for obj in range(len(all_objs)):
+                to_delete = all_objs.pop(0)
+                to_delete.delete()
+        self.save()
 
     def new(self, obj):
-        """
-        adding new obj to the current session
-        """
-        self.__session.add(obj)
+        '''Adds obj to the current database session
+        '''
+        if obj is not None:
+            try:
+                self.__session.add(obj)
+                self.__session.flush()
+                self.__session.refresh(obj)
+            except Exception as err:
+                self.__session.rollback()
+                raise err
 
     def save(self):
-        """
-        saving the current db session
-        """
+        '''Commits all pending changes to the database
+        '''
         self.__session.commit()
 
     def delete(self, obj=None):
+        '''Delete from the current database session
+        '''
         if obj is not None:
-            self.__session.remove(obj)
+            self.__session.delete(obj)
 
     def reload(self):
-        from models.city import City
-        from models.place import Place
-        from models.state import State
-        from models.amenity import Amenity
-        from models.user import User
-        from models.review import Review
+        '''Creates all tables in the database and initializes new session
+        '''
         Base.metadata.create_all(self.__engine)
-        fact = sessionmaker(bind=self.__engine, expire_on_commit=False)
-        Session = scoped_session(fact)
+        session_factory = sessionmaker(bind=self.__engine,
+                                       expire_on_commit=False)
+        Session = scoped_session(session_factory)
         self.__session = Session()
+
+    def close(self):
+        '''Flushes commits and closes current database session
+        '''
+        self.__session.close()
