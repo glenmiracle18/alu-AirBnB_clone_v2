@@ -1,1 +1,1 @@
-web static
+deploy static
